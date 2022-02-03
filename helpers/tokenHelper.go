@@ -13,7 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type SignedDetails struct {
@@ -40,7 +39,7 @@ func GenerateAllTokens(email, firstName, lastName, uid string) (signedToken, sig
 
 	refreshClaims := &SignedDetails{
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(168)).Unix(),
+			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),
 		},
 	}
 	var tokens, err1 = jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRET_KEY))
@@ -63,16 +62,16 @@ func UpdateAllTokens(signedToken, signedRefreshToken, userId string) {
 	Updated_at, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 	updateObj = append(updateObj, bson.E{Key: "updated_at", Value: Updated_at})
 
-	upsert := true
+	// upsert := true
 	filter := bson.M{"user_id": userId}
-	opt := options.UpdateOptions{
-		Upsert: &upsert,
-	}
+	// opt := options.UpdateOptions{
+	// 	Upsert: &upsert,
+	// }
 	_, err := userCollection.UpdateOne(
 		ctx,
 		filter,
 		bson.D{primitive.E{Key: "$set", Value: updateObj}},
-		&opt,
+		// &opt,
 	)
 
 	defer cancel()
@@ -96,12 +95,12 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 
 	claims, ok := token.Claims.(*SignedDetails)
 	if !ok {
-		msg = "Error while Authenticating" + err.Error()
-		return 
+		msg = "Error while Authenticating"
+		return
 	}
 
 	if claims.ExpiresAt < time.Now().Local().Unix() {
-		msg = "Login in Again" + err.Error()
+		msg = "Please login in Again" + err.Error()
 		return
 	}
 

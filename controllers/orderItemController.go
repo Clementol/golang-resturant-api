@@ -16,11 +16,11 @@ import (
 )
 
 type OrderItemPack struct {
-	Table_id    *string
+	User_id    *string
 	Order_items []models.OrderItems
 }
 
-// var validate = validator.New()
+
 var orderItemCollection *mongo.Collection = db.OpenCollection(db.Client, "orderItem")
 
 func GetOrderItems() gin.HandlerFunc {
@@ -70,6 +70,7 @@ func ItemsByOrder(id string) (OrderItems []primitive.M, err error) {
 		{Key: "order_id", Value: id},
 	},
 	}}
+
 	lookupStage := bson.D{{Key: "$lookup", Value: bson.D{
 		{Key: "from", Value: "food"},
 		{Key: "localField", Value: "food_id"},
@@ -200,7 +201,7 @@ func CreateOrderItem() gin.HandlerFunc {
 		order.Order_Date, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
 		orderItemsToBeInserted := []interface{}{}
-		order.Table_id = orderItemPack.Table_id
+		order.User_id = *orderItemPack.User_id
 		order_id := OrderItemOrderCreator(order)
 
 		for _, orderItem := range orderItemPack.Order_items {

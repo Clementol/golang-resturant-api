@@ -20,7 +20,7 @@ type InvoiceViewFormat struct {
 	Payment_method   string
 	Order_id         string
 	Payment_status   *string
-	Paymetn_due      interface{}
+	Payment_due      interface{}
 	Table_number     interface{}
 	Payment_due_date time.Time
 	Order_details    interface{}
@@ -80,7 +80,7 @@ func GetInvoice() gin.HandlerFunc {
 
 		invoiceView.Invoice_id = invoice.Invoice_id
 		invoiceView.Payment_status = *&invoice.Payment_status
-		invoiceView.Paymetn_due = allOrderItems[0]["payment_due"]
+		invoiceView.Payment_due = allOrderItems[0]["payment_due"]
 		invoiceView.Table_number = allOrderItems[0]["table_number"] 
 		invoiceView.Order_details = allOrderItems[0]["order_items"]
 

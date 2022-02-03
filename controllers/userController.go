@@ -163,23 +163,23 @@ func Login() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-
-		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+		
+		err := userCollection.FindOne(ctx, bson.M{"email": &user.Email}).Decode(&foundUser)
 		if err != nil {
 			msg := "invalid user credentials"
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
 		defer cancel()
 		passwordInvalid, msg := VerifyPassword(*user.Password, *foundUser.Password)
 		if !passwordInvalid {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
 		defer cancel()
 
 		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_Name, *foundUser.Last_Name, foundUser.User_id)
-
+		
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
 
 		c.JSON(http.StatusOK, foundUser)

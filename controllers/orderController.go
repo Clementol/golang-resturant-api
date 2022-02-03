@@ -56,38 +56,49 @@ func GetOrder() gin.HandlerFunc {
 
 func CreateOrder() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
-		var table models.Table
+		
 		var order models.Order
-
+		userId := c.MustGet("user_id").(string)
+		if userId == "" {
+			msg := "unable to get user"
+			c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
+			return
+		}
+		order.User_id = userId
+		
 		if err := c.BindJSON(&order); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		defer cancel()
-		validationErr := validate.Struct(&order)
 
+		defer cancel()
+
+		validationErr := validate.Struct(&order)
+		
 		if validationErr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
 
-		if order.Table_id != nil {
-			err := tableCollection.FindOne(ctx, bson.M{"table_id": order.Table_id}).Decode(&table)
-			defer cancel()
-			if err != nil {
-				msg := "message: table was not found"
-				c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+		for _, orderItem := range order.OrderItems {
+
+			validationErr := validate.Struct(orderItem)
+			if validationErr != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 				return
 			}
 		}
+ 		log.Fatal("here")
 
-		order.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		order.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-
+		
 		order.ID = primitive.NewObjectID()
 		order.Order_id = order.ID.Hex()
+		order.Order_Date, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		order.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		order.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
 		result, insertErr := orderCollection.InsertOne(ctx, order)
 
@@ -116,15 +127,15 @@ func UpdateOrder() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if order.Table_id != nil {
-			err := orderCollection.FindOne(ctx, bson.M{"table_id": order.Table_id}).Decode(&table)
+		if order.User_id != "" {
+			err := orderCollection.FindOne(ctx, bson.M{"table_id": order.User_id}).Decode(&table)
 			defer cancel()
 			if err != nil {
 				msg := "message: Menu was not found"
 				c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 				return
 			}
-			updateObj = append(updateObj, bson.E{Key: "table_id", Value: order.Table_id})
+			updateObj = append(updateObj, bson.E{Key: "table_id", Value: order.User_id})
 
 		}
 		order.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
