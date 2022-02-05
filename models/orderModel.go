@@ -17,5 +17,5 @@ type Order struct {
 	Payment_status *string            `json:"payment_status" validate:"eq=PENDING|eq=PAID"`
 	Payment_method *string            `json:"payment_method" validate:"eq=CARD|eq=CASH|eq="`
 	Order_status   string             `json:"order_status" validate:"eq=ORDERED|eq=COMING|eq=DELIVERED"`
-	OrderItems    []OrderItems
+	OrderItems    []OrderItems		  `bson:"order_items" json:"order_items" validate:"required"`
 }

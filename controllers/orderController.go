@@ -59,8 +59,9 @@ func CreateOrder() gin.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
-		
+
 		var order models.Order
+
 		userId := c.MustGet("user_id").(string)
 		if userId == "" {
 			msg := "unable to get user"
@@ -68,7 +69,7 @@ func CreateOrder() gin.HandlerFunc {
 			return
 		}
 		order.User_id = userId
-		
+
 		if err := c.BindJSON(&order); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -77,33 +78,59 @@ func CreateOrder() gin.HandlerFunc {
 		defer cancel()
 
 		validationErr := validate.Struct(&order)
-		
+
 		if validationErr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
-
-		for _, orderItem := range order.OrderItems {
-
-			validationErr := validate.Struct(orderItem)
-			if validationErr != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
-				return
-			}
-		}
- 		log.Fatal("here")
-
 		
+
 		order.ID = primitive.NewObjectID()
 		order.Order_id = order.ID.Hex()
 		order.Order_Date, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		order.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		order.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
-		result, insertErr := orderCollection.InsertOne(ctx, order)
+		var orderObj  primitive.D
+		var orderItemsObj  []interface{}
+
+		orderObj = append(orderObj, primitive.E{Key: "_id", Value: order.ID})
+		orderObj = append(orderObj, primitive.E{Key: "order_date", Value: order.Order_Date})
+		orderObj = append(orderObj, primitive.E{Key: "created_at", Value: order.Created_at})
+		orderObj = append(orderObj, primitive.E{Key: "updated_at", Value: order.Updated_at})
+		orderObj = append(orderObj, primitive.E{Key: "order_id", Value: order.Order_id})
+		orderObj = append(orderObj, primitive.E{Key: "user_id", Value: order.User_id})
+		orderObj = append(orderObj, primitive.E{Key: "total_amount", Value: order.Total_amount})
+		orderObj = append(orderObj, primitive.E{Key: "payment_status", Value: order.Payment_status})
+		orderObj = append(orderObj, primitive.E{Key: "payment_method", Value: order.Payment_method})
+		orderObj = append(orderObj, primitive.E{Key: "order_status", Value: order.Order_status})
+
+
+		for _, orderItem := range order.OrderItems {
+
+
+			// validationErr := validate.Struct(orderItem)
+			// if validationErr != nil {
+			// 	c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+			// 	return
+			// }
+			orderItem.ID = primitive.NewObjectID()
+			orderItem.Order_item_id = orderItem.ID.Hex()
+			orderItemsObj = append(orderItemsObj, orderItem)
+		}
+		orderObj = append(orderObj, primitive.E{Key: "order_items", Value: orderItemsObj})
+
+		// for _, orderItem := range order.OrderItems {
+			
+		// 	log.Println(orderItem.Order_item_id, "here")
+		// }
+
+		// log.Fatal()
+		
+		result, insertErr := orderCollection.InsertOne(ctx, orderObj)
 
 		if insertErr != nil {
-			msg := "Order item was not created"
+			msg := "Order was not created"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}

@@ -205,7 +205,7 @@ func CreateOrderItem() gin.HandlerFunc {
 		order_id := OrderItemOrderCreator(order)
 
 		for _, orderItem := range orderItemPack.Order_items {
-			orderItem.Order_id = order_id
+			orderItem.Order_item_id = order_id
 
 			validationErr := validate.Struct(orderItem)
 
@@ -215,9 +215,6 @@ func CreateOrderItem() gin.HandlerFunc {
 			}
 			
 			orderItem.ID = primitive.NewObjectID()
-			orderItem.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-			orderItem.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-			orderItem.Order_item_id = orderItem.ID.Hex()
 			var num = toFixed(*orderItem.Unit_price, 2)
 			orderItem.Unit_price = &num
 			orderItemsToBeInserted = append(orderItemsToBeInserted, orderItem)
@@ -257,8 +254,6 @@ func UpdateOrderItem() gin.HandlerFunc {
 			updateObj = append(updateObj, bson.E{Key: "food_id", Value: *orderItem.Food_id})
 		}
 
-		orderItem.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		updateObj = append(updateObj, bson.E{Key: "updated_at", Value: orderItem.Updated_at})
 
 		upsert := true
 		opt := options.UpdateOptions{
