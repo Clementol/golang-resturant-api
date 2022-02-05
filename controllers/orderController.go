@@ -71,7 +71,7 @@ func CreateOrder() gin.HandlerFunc {
 		order.User_id = userId
 
 		if err := c.BindJSON(&order); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -108,12 +108,6 @@ func CreateOrder() gin.HandlerFunc {
 
 		for _, orderItem := range order.OrderItems {
 
-
-			// validationErr := validate.Struct(orderItem)
-			// if validationErr != nil {
-			// 	c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
-			// 	return
-			// }
 			orderItem.ID = primitive.NewObjectID()
 			orderItem.Order_item_id = orderItem.ID.Hex()
 			orderItemsObj = append(orderItemsObj, orderItem)
