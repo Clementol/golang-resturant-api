@@ -13,7 +13,6 @@ func Authentication() gin.HandlerFunc {
 		// helpers
 
 		header := c.Request.Header.Get("Authorization")
-
 		clientToken := strings.Split(header, " ")[1]
 		if clientToken == "" {
 			msg := "Cannot proceed to Authentication"
