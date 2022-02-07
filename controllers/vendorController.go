@@ -12,30 +12,31 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var vendorCollection = db.OpenCollection(db.Client, "vendor")
 
-func GetVendors() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+// func GetVendors() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 
-		var vendors []primitive.M
+// 		var vendors []primitive.M
 
-		result, err := vendorCollection.Find(ctx, bson.M{})
-		defer cancel()
-		if err != nil {
-			msg := "error getting vendors " + err.Error()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-			return
-		}
-		if err := result.All(ctx, &vendors); err != nil {
-			log.Fatal(err.Error())
-		}
-		c.JSON(http.StatusOK, vendors)
-	}
-}
+// 		result, err := vendorCollection.Find(ctx, bson.M{})
+// 		defer cancel()
+// 		if err != nil {
+// 			msg := "error getting vendors " + err.Error()
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+// 			return
+// 		}
+// 		if err := result.All(ctx, &vendors); err != nil {
+// 			log.Fatal(err.Error())
+// 		}
+// 		c.JSON(http.StatusOK, vendors)
+// 	}
+// }
 
 func GetVendor() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -67,14 +68,13 @@ func CreateVendor() gin.HandlerFunc {
 
 		file, err := c.FormFile("file")
 
-
 		if err != nil {
 			msg := "vendor image is required"
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
 		if err := c.Bind(&vendor); err != nil {
-			
+
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -93,7 +93,7 @@ func CreateVendor() gin.HandlerFunc {
 
 		vendor.ID = primitive.NewObjectID()
 		vendor.Vendor_id = vendor.ID.Hex()
-		
+
 		vendor.Image = imageFile
 		log.Println(vendor.Image)
 		// log.Fatal()
@@ -117,7 +117,6 @@ func UpdateVendor() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 		var vendor models.Vendor
-
 
 		vendorId := c.Param("vendor_id")
 		defer cancel()
@@ -176,5 +175,99 @@ func UpdateVendor() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusAccepted, updatedVendor)
+	}
+}
+
+func GetVendorOrders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		vendorId := c.Param("vendor_id")
+
+		matchVendorStage := bson.D{{Key: "$match", Value: bson.D{
+			{Key: "vendor_id", Value: vendorId},
+		},
+		}}
+
+		// projectOrderStage := bson.D{{Key: "$project", Value: bson.D{
+		// 				{Key: "vendor", Value: "$order"},
+		// },
+		// }}
+
+		var vendorOrders []bson.M
+
+		result, err := orderCollection.Aggregate(ctx, mongo.Pipeline{
+			matchVendorStage,
+		})
+
+		if err != nil {
+			msg := "unable to get vendor orders"
+			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+
+		if err := result.All(ctx, &vendorOrders); err != nil {
+			log.Fatal(err.Error())
+		}
+		defer cancel()
+
+		if vendorOrders == nil {
+			msg := "vendor doesn't have orders"
+			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+
+		c.JSON(http.StatusOK, vendorOrders)
+	}
+}
+
+func UpdateVendorOrder() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var table models.Table
+		var order models.Order
+
+		var updateObj primitive.D
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+		orderId := c.Param("order_id")
+
+		if err := c.BindJSON(&order); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if order.User_id != "" {
+			err := orderCollection.FindOne(ctx, bson.M{"table_id": order.User_id}).Decode(&table)
+			defer cancel()
+			if err != nil {
+				msg := "message: Menu was not found"
+				c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+				return
+			}
+			updateObj = append(updateObj, bson.E{Key: "table_id", Value: order.User_id})
+
+		}
+		order.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		updateObj = append(updateObj, bson.E{Key: "updated_at", Value: order.Updated_at})
+		upsert := true
+		filter := bson.M{"order_id": orderId}
+		opt := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+		result, err := orderCollection.UpdateOne(
+			ctx,
+			filter,
+			bson.D{
+				{Key: "$set", Value: updateObj},
+			},
+			&opt,
+		)
+		if err != nil {
+			msg := "order item update failed"
+			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+		defer cancel()
+		c.JSON(http.StatusOK, result)
 	}
 }
