@@ -24,6 +24,7 @@ func GetUserOrders() gin.HandlerFunc {
 		defer cancel()
 
 		userId := c.MustGet("user_id").(string)
+
 		matchOrderStage := bson.D{{Key: "$match", Value: bson.D{
 			{Key: "user_id", Value: userId},
 		},
@@ -34,6 +35,14 @@ func GetUserOrders() gin.HandlerFunc {
 			{Key: "foreignField", Value: "food_id"},
 			{Key: "localField", Value: "order_items.food_id"},
 			{Key: "as", Value: "order_foods"},
+		},
+		}}
+
+		lookupVendorStage := bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "vendor"},
+			{Key: "foreignField", Value: "vendor_id"},
+			{Key: "localField", Value: "vendor_id"},
+			{Key: "as", Value: "vendor"},
 		},
 		}}
 
@@ -51,13 +60,17 @@ func GetUserOrders() gin.HandlerFunc {
 		},
 		}}
 
-		unsetOrderStage := bson.D{{Key: "$unset", Value: "orders.order_items",
+		unsetOrderStage := bson.D{{Key: "$unset", Value: []interface{}{
+					"orders.order_items",
+				 	"orders.vendor_id",
+		},
 		}}
 
 		var allOrders []bson.M
 		result, err := orderCollection.Aggregate(ctx, mongo.Pipeline{
 			matchOrderStage,
 			lookupFoodStage,
+			lookupVendorStage,
 			groupOrderStage,
 			projectOrderStage,
 			unsetOrderStage,
@@ -73,15 +86,7 @@ func GetUserOrders() gin.HandlerFunc {
 		}
 		// result, err := orderCollection.Find(context.TODO(), bson.M{})
 		defer cancel()
-		// if err != nil {
-		// 	msg := "order occured while listing order items"
-		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-		// 	return
-		// }
 
-		// if err := result.All(ctx, &allOrders); err != nil {
-		// 	log.Fatal(err.Error())
-		// }
 		c.JSON(http.StatusOK, allOrders)
 	}
 }
@@ -132,6 +137,19 @@ func CreateOrder() gin.HandlerFunc {
 			return
 		}
 
+		vendorCount, err := vendorCollection.CountDocuments(ctx, bson.M{"vendor_id": order.Vendor_id})
+
+		if err != nil {
+			msg := "error occurred while checking for vendor"
+			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+		if vendorCount == 0 {
+			msg := "vendor doesn't exist"
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			return
+		}
+
 		order.ID = primitive.NewObjectID()
 		order.Order_id = order.ID.Hex()
 		order.Order_Date, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
@@ -147,6 +165,7 @@ func CreateOrder() gin.HandlerFunc {
 		orderObj = append(orderObj, primitive.E{Key: "updated_at", Value: order.Updated_at})
 		orderObj = append(orderObj, primitive.E{Key: "order_id", Value: order.Order_id})
 		orderObj = append(orderObj, primitive.E{Key: "user_id", Value: order.User_id})
+		orderObj = append(orderObj, primitive.E{Key: "vendor_id", Value: order.Vendor_id})
 		orderObj = append(orderObj, primitive.E{Key: "total_amount", Value: order.Total_amount})
 		orderObj = append(orderObj, primitive.E{Key: "payment_status", Value: order.Payment_status})
 		orderObj = append(orderObj, primitive.E{Key: "payment_method", Value: order.Payment_method})
