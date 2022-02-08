@@ -12,7 +12,7 @@ func VendorRoutes(incommingRoutes *gin.Engine) {
 	incommingRoutes.GET("/vendor/:vendor_id", controller.GetVendor())
 	incommingRoutes.GET("/vendor/:vendor_id/orders", /*vendorAuth*/ controller.GetVendorOrders())
 
-	incommingRoutes.PATCH("/vendor/:vendor_id/orders", controller.UpdateVendorOrder())
+	incommingRoutes.PATCH("/vendor/orders/update", /*vendorAuth*/ controller.UpdateVendorOrder())
 
 	// incommingRoutes.GET("/vendors", controller.GetVendors())
 }

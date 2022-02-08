@@ -190,15 +190,58 @@ func GetVendorOrders() gin.HandlerFunc {
 		},
 		}}
 
-		// projectOrderStage := bson.D{{Key: "$project", Value: bson.D{
-		// 				{Key: "vendor", Value: "$order"},
-		// },
-		// }}
+		lookupCustomerStage := bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "user"},
+			{Key: "localField", Value: "user_id"},
+			{Key: "foreignField", Value: "user_id"},
+			{Key: "as", Value: "user"},
+		},
+		}}
+
+		lookupFoodStage := bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "food"},
+			{Key: "localField", Value: "order_items.food_id"},
+			{Key: "foreignField", Value: "food_id"},
+			{Key: "as", Value: "order_foods"},
+		},
+		}}
+
+		groupCustomerStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$user_id"},
+			{Key: "customer_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		},
+		}}
+
+		projectOrderStage := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "customer_count", Value: "$customer_count"},
+			{Key: "customer", Value: "$data"},
+		},
+		}}
+
+		unsetOrderStage := bson.D{{Key: "$unset", Value: []interface{}{
+			"customer.order_items",
+			"customer.user_id",
+			"customer.user.token",
+			"customer.user.refresh_token",
+			"customer.user.password",
+			"customer.user.created_at",
+			"customer.user.updated_at",
+			"customer.user.user_d",
+			"customer.user._id",
+		},
+		}}
 
 		var vendorOrders []bson.M
 
 		result, err := orderCollection.Aggregate(ctx, mongo.Pipeline{
 			matchVendorStage,
+			lookupCustomerStage,
+			lookupFoodStage,
+			groupCustomerStage,
+			projectOrderStage,
+			unsetOrderStage,
 		})
 
 		if err != nil {
@@ -224,50 +267,39 @@ func GetVendorOrders() gin.HandlerFunc {
 
 func UpdateVendorOrder() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var table models.Table
 		var order models.Order
 
+		var updateOrder models.UpdateOrder
+
 		var updateObj primitive.D
+
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
-		orderId := c.Param("order_id")
+		// orderIds, _ := ioutil.ReadAll(c.Request.Body)
 
-		if err := c.BindJSON(&order); err != nil {
+		if err := c.Bind(&updateOrder); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if order.User_id != "" {
-			err := orderCollection.FindOne(ctx, bson.M{"table_id": order.User_id}).Decode(&table)
-			defer cancel()
-			if err != nil {
-				msg := "message: Menu was not found"
-				c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-				return
-			}
-			updateObj = append(updateObj, bson.E{Key: "table_id", Value: order.User_id})
-
+		// idsToUpdate := bson.M{}
+		for _, orderId := range updateOrder.Order_ids {
+			log.Println(orderId.OrderId)
 		}
+		log.Fatal()
+
 		order.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		updateObj = append(updateObj, bson.E{Key: "updated_at", Value: order.Updated_at})
-		upsert := true
-		filter := bson.M{"order_id": orderId}
-		opt := options.UpdateOptions{
-			Upsert: &upsert,
-		}
-		result, err := orderCollection.UpdateOne(
-			ctx,
-			filter,
-			bson.D{
-				{Key: "$set", Value: updateObj},
-			},
-			&opt,
-		)
-		if err != nil {
-			msg := "order item update failed"
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-			return
-		}
+
+		filter := bson.M{}
+		update := bson.M{"$eq": ""}
+		orderCollection.UpdateMany(ctx, filter, update)
+
+		// if err != nil {
+		// 	msg := "order item update failed"
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+		// 	return
+		// }
 		defer cancel()
-		c.JSON(http.StatusOK, result)
+		// c.JSON(http.StatusOK, result)
 	}
 }

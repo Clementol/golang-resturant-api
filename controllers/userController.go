@@ -14,7 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/crypto/bcrypt"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var userCollection *mongo.Collection = db.OpenCollection(db.Client, "user")
@@ -41,14 +41,14 @@ func GetUsers() gin.HandlerFunc {
 		// matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
 		projectStage := []bson.M{
 			{"$project": bson.M{
-			"_id": 0,
-			// "total_count": 1,
-			// "users_items": bson.M{"$slice": []interface{}{ startIndex, recordPerPage}},
-			
-		}}}
+				"_id": 0,
+				// "total_count": 1,
+				// "users_items": bson.M{"$slice": []interface{}{ startIndex, recordPerPage}},
 
-		result, err := userCollection.Aggregate(ctx, 
-			 projectStage,
+			}}}
+
+		result, err := userCollection.Aggregate(ctx,
+			projectStage,
 		)
 		if err != nil {
 			msg := "error occurred while listing user items" + err.Error()
@@ -70,7 +70,7 @@ func GetUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
-		userId := c.Param("user_id")
+		userId := c.MustGet("user_id").(string)
 
 		var user bson.M
 
@@ -92,7 +92,9 @@ func Signup() gin.HandlerFunc {
 		defer cancel()
 		var user models.User
 
-		if err := c.BindJSON(&user); err != nil {
+		file, _ := c.FormFile("file")
+
+		if err := c.Bind(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -114,7 +116,7 @@ func Signup() gin.HandlerFunc {
 		}
 		defer cancel()
 
-		password := HashPassword(*user.Password)
+		password := helper.HashPassword(*user.Password)
 		user.Password = &password
 
 		phoneCount, err := userCollection.CountDocuments(ctx, bson.M{"phone": user.Phone})
@@ -140,6 +142,11 @@ func Signup() gin.HandlerFunc {
 		user.Token = &token
 		user.Refresh_Token = &refreshToken
 
+		if file != nil {
+			imageText := helper.RenameFileName(*file)
+			user.Avatar = &imageText
+		}
+
 		result, insertErr := userCollection.InsertOne(ctx, user)
 		if insertErr != nil {
 			msg := "user was not registered"
@@ -163,7 +170,7 @@ func Login() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		
+
 		err := userCollection.FindOne(ctx, bson.M{"email": &user.Email}).Decode(&foundUser)
 		if err != nil {
 			msg := "invalid user credentials"
@@ -171,7 +178,7 @@ func Login() gin.HandlerFunc {
 			return
 		}
 		defer cancel()
-		passwordInvalid, msg := VerifyPassword(*user.Password, *foundUser.Password)
+		passwordInvalid, msg := helper.VerifyPassword(*user.Password, *foundUser.Password)
 		if !passwordInvalid {
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
@@ -179,7 +186,7 @@ func Login() gin.HandlerFunc {
 		defer cancel()
 
 		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_Name, *foundUser.Last_Name, foundUser.User_id)
-		
+
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
 
 		c.JSON(http.StatusOK, foundUser)
@@ -187,25 +194,54 @@ func Login() gin.HandlerFunc {
 	}
 }
 
-func HashPassword(password string) string {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+func UpdateUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
-	if err != nil {
-		log.Fatal(err)
+		userId := c.Param("user_id")
+
+		file, _ := c.FormFile("file")
+
+		var user models.User
+
+		if err := c.Bind(&user); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		updateObj := bson.M{}
+
+		if file != nil {
+			imageText := helper.RenameFileName(*file)
+			updateObj["avatar"] = imageText
+		}
+
+		if user.Phone != nil {
+			updateObj["phone"] = user.Phone
+		}
+
+		if user.First_Name != nil {
+			updateObj["first_name"] = user.First_Name
+		}
+
+		if user.Last_Name != nil {
+
+			updateObj["last_name"] = user.Last_Name
+		}
+
+		updatedUser := bson.M{}
+		filter := bson.M{"user_id": userId}
+		opt := options.FindOneAndUpdate().SetReturnDocument(options.After)
+		err := userCollection.FindOneAndUpdate(ctx, filter,
+			bson.M{"$set": updateObj}, opt).Decode(&updatedUser)
+
+		if err != nil {
+			msg := "invalid credentials " + err.Error()
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			return
+		}
+
+		c.JSON(http.StatusAccepted, updatedUser)
 
 	}
-	return string(bytes)
-}
-
-func VerifyPassword(userPassword string, providedPassword string) (bool, string) {
-
-	err := bcrypt.CompareHashAndPassword([]byte(providedPassword), []byte(userPassword))
-	check := true
-	msg := ""
-
-	if err != nil {
-		msg = "invalid login credentials"
-		check = false
-	}
-	return check, msg
 }

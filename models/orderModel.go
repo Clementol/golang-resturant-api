@@ -20,3 +20,11 @@ type Order struct {
 	Order_status   string             `json:"order_status" validate:"eq=ORDERED|eq=COMING|eq=DELIVERED"`
 	OrderItems     []OrderItems       `bson:"order_items" json:"order_items" validate:"required"`
 }
+
+type OrderIds struct {
+	OrderId string `json:"order_id" validate:"required"`
+}
+
+type UpdateOrder struct {
+	Order_ids []OrderIds `json:"order_ids" validate:"required"`
+}
