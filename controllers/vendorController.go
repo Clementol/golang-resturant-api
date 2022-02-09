@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -267,39 +268,50 @@ func GetVendorOrders() gin.HandlerFunc {
 
 func UpdateVendorOrder() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var order models.Order
+		// var order models.Order
 
 		var updateOrder models.UpdateOrder
+		vendorId := c.Param("vendor_id")
 
-		var updateObj primitive.D
+
+		updateObj := bson.M{}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
-		// orderIds, _ := ioutil.ReadAll(c.Request.Body)
 
-		if err := c.Bind(&updateOrder); err != nil {
+		if err := c.BindJSON(&updateOrder); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		// idsToUpdate := bson.M{}
-		for _, orderId := range updateOrder.Order_ids {
-			log.Println(orderId.OrderId)
+		validateErr := validate.Struct(&updateOrder)
+		if validateErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": validateErr.Error()})
+			return
 		}
-		log.Fatal()
 
-		order.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		updateObj = append(updateObj, bson.E{Key: "updated_at", Value: order.Updated_at})
+		// log.Fatal(updateOrder.Order_ids)
 
-		filter := bson.M{}
-		update := bson.M{"$eq": ""}
-		orderCollection.UpdateMany(ctx, filter, update)
+		updateObj["order_status"] = updateOrder.Order_status
 
-		// if err != nil {
-		// 	msg := "order item update failed"
-		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-		// 	return
-		// }
+		updateObj["updated_at"], _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	
+		idsToUpdate := bson.M{
+			"vendor_id": vendorId,
+			"order_id": bson.M{
+			"$in": updateOrder.Order_ids},
+		}
+
+		fieldToUpdate := bson.M{"$set": updateObj}
+
+		result, err := orderCollection.UpdateMany(ctx, idsToUpdate, fieldToUpdate)
+
+		if err != nil {
+			msg := "order item update failed " + err.Error()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
 		defer cancel()
-		// c.JSON(http.StatusOK, result)
+		msg := fmt.Sprint(result.ModifiedCount) + " order(s) updated"
+		c.JSON(http.StatusOK, msg)
 	}
 }

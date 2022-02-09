@@ -26,5 +26,6 @@ type OrderIds struct {
 }
 
 type UpdateOrder struct {
-	Order_ids []OrderIds `json:"order_ids" validate:"required"`
+	Order_ids    []string `json:"order_ids" validate:"required,min=1"`
+	Order_status string   `json:"order_status" validate:"required,eq=ORDERED|eq=COMING|eq=DELIVERED"`
 }
