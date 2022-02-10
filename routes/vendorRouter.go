@@ -8,7 +8,7 @@ import (
 
 func VendorRoutes(incommingRoutes *gin.Engine) {
 	incommingRoutes.POST("/vendor/create", controller.CreateVendor())
-	incommingRoutes.PATCH("/vendor/update/:vendor_id", controller.UpdateVendor())
+	incommingRoutes.PATCH("/vendor/update/:vendor_id", /*vendorAuth*/ controller.UpdateVendor())
 	incommingRoutes.GET("/vendor/:vendor_id", controller.GetVendor())
 	incommingRoutes.GET("/vendor/:vendor_id/orders", /*vendorAuth*/ controller.GetVendorOrders())
 
