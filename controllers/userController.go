@@ -229,6 +229,8 @@ func UpdateUser() gin.HandlerFunc {
 			updateObj["last_name"] = user.Last_Name
 		}
 
+		updateObj["updated_at"], _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+
 		updatedUser := bson.M{}
 		filter := bson.M{"user_id": userId}
 		opt := options.FindOneAndUpdate().SetReturnDocument(options.After)

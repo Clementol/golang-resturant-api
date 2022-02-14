@@ -273,7 +273,6 @@ func UpdateVendorOrder() gin.HandlerFunc {
 		var updateOrder models.UpdateOrder
 		vendorId := c.Param("vendor_id")
 
-
 		updateObj := bson.M{}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
@@ -294,11 +293,12 @@ func UpdateVendorOrder() gin.HandlerFunc {
 		updateObj["order_status"] = updateOrder.Order_status
 
 		updateObj["updated_at"], _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-	
+
 		idsToUpdate := bson.M{
 			"vendor_id": vendorId,
 			"order_id": bson.M{
-			"$in": updateOrder.Order_ids},
+				"$in": updateOrder.Order_ids,
+			},
 		}
 
 		fieldToUpdate := bson.M{"$set": updateObj}

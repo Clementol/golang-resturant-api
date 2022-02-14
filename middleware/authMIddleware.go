@@ -13,6 +13,12 @@ func Authentication() gin.HandlerFunc {
 		// helpers
 
 		header := c.Request.Header.Get("Authorization")
+		if header == "" {
+			msg := "header required"
+			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			c.Abort()
+			return
+		}
 		clientToken := strings.Split(header, " ")[1]
 		if clientToken == "" {
 			msg := "Cannot proceed to Authentication"
@@ -27,6 +33,7 @@ func Authentication() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
 		c.Set("email", claims.Email)
 		c.Set("first_name", claims.First_Name)
 		c.Set("last_name", claims.Last_Name)

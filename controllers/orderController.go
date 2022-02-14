@@ -15,7 +15,6 @@ import (
 )
 
 var orderCollection = (*mongo.Collection)(db.OpenCollection(db.Client, "order"))
-var tableCollection = (*mongo.Collection)(db.OpenCollection(db.Client, "table"))
 
 func GetUserOrders() gin.HandlerFunc {
 	return func(c *gin.Context) {

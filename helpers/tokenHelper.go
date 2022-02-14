@@ -93,12 +93,17 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 		},
 	)
 
+	if err != nil {
+		msg = "Error while Validating " + err.Error()
+		return
+	}
+
 	claims, ok := token.Claims.(*SignedDetails)
 	if !ok {
 		msg = "Error while Authenticating"
 		return
 	}
-
+	
 	if claims.ExpiresAt < time.Now().Local().Unix() {
 		msg = "Please login in Again" + err.Error()
 		return
