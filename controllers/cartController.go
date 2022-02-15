@@ -47,51 +47,86 @@ func AddItemToCart() gin.HandlerFunc {
 		cartObj["cart_items"] = cart.Cart_items
 
 		userCart := bson.M{}
-
+		filter := bson.M{
+			"user_id": cart.User_id,
+		}
 		for _, cartItem := range cart.Cart_items {
 			var update primitive.M
 
-			filter := bson.M{
-				"user_id": cart.User_id,
-			}
 			checkForItem := bson.M{
 				"user_id":            cart.User_id,
 				"cart_items.food_id": cartItem.Food_id,
 			}
-			cartCounts, _ := cartCollection.CountDocuments(ctx, checkForItem)
-			log.Fatal(cartCounts)
-			if cartCounts == 1 {
-				update = bson.M{
-					"$set": bson.M{
-						"cart_items.$": cartItem,
+			userCounts, err := cartCollection.CountDocuments(ctx, filter)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			// log.Fatal(userCounts)
+			if userCounts == 1 {
+
+				cartCounts, _ := cartCollection.CountDocuments(ctx, checkForItem)
+				// log.Fatal(cartCounts)
+				if cartCounts == 1 { // if cart item exist
+					update := bson.M{"$set": bson.M{
+						"cart_items": bson.M{
+							"cart_items.f": cartItem.Quantity,
+						},
 						"updated_at":   cart.Updated_at,
 					},
-				}
-				opt := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
-				err := cartCollection.FindOneAndUpdate(ctx, filter, update, opt).Decode(&userCart)
-				if err != nil {
-					msg := "error adding cart " + err.Error()
-					c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+					}
+					opt := options.FindOneAndUpdate().SetReturnDocument(options.After)
+					err := cartCollection.FindOneAndUpdate(ctx, filter, update, opt).Decode(&userCart)
+					if err != nil {
+						msg := "error adding cart " + err.Error()
+						c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+						return
+					}
+					c.JSON(http.StatusAccepted, userCart)
 					return
-				}
-			} else {
-				update = bson.M{
-					"$push": bson.M{
-						"cart_items": cartItem,
-					},
-				}
-				opt := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
-				err := cartCollection.FindOneAndUpdate(ctx, filter, update, opt).Decode(&userCart)
-				if err != nil {
-					msg := "error adding cart " + err.Error()
-					c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+
+				} else {
+					update = bson.M{
+						"$push": bson.M{
+							"cart_items": bson.M{
+								"food_id":  cartItem.Food_id,
+								"quantity": cartItem.Quantity,
+							},
+						},
+						"$set": bson.M{
+							"updated_at": cart.Updated_at,
+						},
+					}
+
+					opt := options.FindOneAndUpdate().SetReturnDocument(options.After)
+					err := cartCollection.FindOneAndUpdate(ctx, filter, update, opt).Decode(&userCart)
+					if err != nil {
+						msg := "error adding cart " + err.Error()
+						c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+						return
+					}
+
+					c.JSON(http.StatusAccepted, userCart)
 					return
 				}
 			}
 
 		}
+		newCart := bson.M{}
+		newCart["user_id"] = cart.User_id
+		newCart["cart_items"] = cart.Cart_items
+		newCart["created_at"] = cart.Created_at
+		newCart["updated_at"] = cart.Updated_at
 
-		c.JSON(http.StatusAccepted, userCart)
+		// opt := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
+		// cartCollection.FindOneAndUpdate(ctx, filter, newCart, opt).Decode(&userCart)
+		result, insertErr := cartCollection.InsertOne(ctx, newCart)
+		if insertErr != nil {
+			msg := "error adding cart " + insertErr.Error()
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			return
+		}
+
+		c.JSON(http.StatusCreated, result)
 
 	}
 }
