@@ -38,16 +38,13 @@ func AddItemToCart() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
-		cartObj := bson.M{}
 		cart.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		cart.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
-		cartObj["created_at"] = cart.Created_at
-		cartObj["updated_at"] = cart.Updated_at
-		cartObj["cart_items"] = cart.Cart_items
-
+		var filter primitive.M
 		userCart := bson.M{}
-		filter := bson.M{
+
+		filter = bson.M{
 			"user_id": cart.User_id,
 		}
 		for _, cartItem := range cart.Cart_items {
@@ -61,27 +58,32 @@ func AddItemToCart() gin.HandlerFunc {
 			if err != nil {
 				log.Fatal(err.Error())
 			}
-			// log.Fatal(userCounts)
+
 			if userCounts == 1 {
 
 				cartCounts, _ := cartCollection.CountDocuments(ctx, checkForItem)
-				// log.Fatal(cartCounts)
+
 				if cartCounts == 1 { // if cart item exist
+					// filter = bson.M{
+					// 	"cart_items.food_id": bson.M{"$eq": cartItem.Food_id},
+					// }
+					checkForItem = bson.M{
+						"cart_items.food_id": bson.M{"$eq": cartItem.Food_id},
+					}
 					update := bson.M{"$set": bson.M{
-						"cart_items": bson.M{
-							"cart_items.f": cartItem.Quantity,
-						},
-						"updated_at":   cart.Updated_at,
+						"cart_items.$.quantity": cartItem.Quantity, 
+						"updated_at":              cart.Updated_at,
 					},
 					}
-					opt := options.FindOneAndUpdate().SetReturnDocument(options.After)
-					err := cartCollection.FindOneAndUpdate(ctx, filter, update, opt).Decode(&userCart)
+
+					opt := options.Update()
+					updatedCart, err := cartCollection.UpdateOne(ctx, checkForItem, update, opt)
 					if err != nil {
 						msg := "error adding cart " + err.Error()
 						c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 						return
 					}
-					c.JSON(http.StatusAccepted, userCart)
+					c.JSON(http.StatusAccepted, updatedCart.ModifiedCount)
 					return
 
 				} else {
