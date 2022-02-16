@@ -64,15 +64,13 @@ func AddItemToCart() gin.HandlerFunc {
 				cartCounts, _ := cartCollection.CountDocuments(ctx, checkForItem)
 
 				if cartCounts == 1 { // if cart item exist
-					// filter = bson.M{
-					// 	"cart_items.food_id": bson.M{"$eq": cartItem.Food_id},
-					// }
+
 					checkForItem = bson.M{
 						"cart_items.food_id": bson.M{"$eq": cartItem.Food_id},
 					}
 					update := bson.M{"$set": bson.M{
-						"cart_items.$.quantity": cartItem.Quantity, 
-						"updated_at":              cart.Updated_at,
+						"cart_items.$.quantity": cartItem.Quantity,
+						"updated_at":            cart.Updated_at,
 					},
 					}
 
@@ -102,7 +100,7 @@ func AddItemToCart() gin.HandlerFunc {
 					opt := options.FindOneAndUpdate().SetReturnDocument(options.After)
 					err := cartCollection.FindOneAndUpdate(ctx, filter, update, opt).Decode(&userCart)
 					if err != nil {
-						msg := "error adding cart " + err.Error()
+						msg := "error adding cart"
 						c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 						return
 					}
@@ -119,11 +117,9 @@ func AddItemToCart() gin.HandlerFunc {
 		newCart["created_at"] = cart.Created_at
 		newCart["updated_at"] = cart.Updated_at
 
-		// opt := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
-		// cartCollection.FindOneAndUpdate(ctx, filter, newCart, opt).Decode(&userCart)
 		result, insertErr := cartCollection.InsertOne(ctx, newCart)
 		if insertErr != nil {
-			msg := "error adding cart " + insertErr.Error()
+			msg := "error adding cart "
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
@@ -136,11 +132,93 @@ func AddItemToCart() gin.HandlerFunc {
 func GetCartItems() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		userId := c.MustGet("user_id").(string)
+		cartItems := []bson.M{}
+
+		matchCartStage := bson.D{{Key: "$match", Value: bson.D{
+			{Key: "user_id", Value: userId},
+		},
+		}}
+
+		projectCartStage := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "user_id", Value: 0},
+			{Key: "created_at", Value: 0},
+			{Key: "updated_at", Value: 0},
+		},
+		}}
+
+		result, err := cartCollection.Aggregate(ctx, mongo.Pipeline{
+			matchCartStage,
+			projectCartStage,
+		})
+
+		if err != nil {
+			msg := "unable to get cart items "
+			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+
+		if err := result.All(ctx, &cartItems); err != nil {
+			log.Fatal(err.Error())
+		}
+
+		c.JSON(http.StatusOK, cartItems)
+
 	}
 }
 
 func RemoveCartItem() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		userId := c.MustGet("user_id").(string)
+
+		var cart models.RemoveCartItem
+
+		if err := c.Bind(&cart); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		validationErr := validate.Struct(&cart)
+		if validationErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+			return
+		}
+		
+		cart.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+
+		checkForItem := bson.M{
+			"user_id":            userId,
+			"cart_items.food_id": cart.Food_id,
+		}
+
+		update := bson.M{
+			"$pull": bson.M{
+				"cart_items": bson.M{
+					"food_id": cart.Food_id,
+					// "quantity": cartItem.Quantity,
+				},
+			},
+			"$set": bson.M{
+				"updated_at": cart.Updated_at,
+			},
+		}
+
+		result, err := cartCollection.UpdateOne(ctx, checkForItem, update)
+
+		if err != nil {
+			msg := "unable to get cart items"
+			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+
+		c.JSON(http.StatusAccepted, result.ModifiedCount)
 
 	}
 }
