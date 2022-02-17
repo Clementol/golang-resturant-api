@@ -81,6 +81,11 @@ func AddItemToCart() gin.HandlerFunc {
 						c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 						return
 					}
+					if updatedCart.MatchedCount != 1 {
+						msg := "no cart item found"
+						c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+						return
+					}
 					c.JSON(http.StatusAccepted, updatedCart.ModifiedCount)
 					return
 
@@ -190,7 +195,7 @@ func RemoveCartItem() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
-		
+
 		cart.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
 		checkForItem := bson.M{
@@ -213,7 +218,7 @@ func RemoveCartItem() gin.HandlerFunc {
 		result, err := cartCollection.UpdateOne(ctx, checkForItem, update)
 
 		if err != nil {
-			msg := "unable to get cart items"
+			msg := "unable to remove cart item"
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
