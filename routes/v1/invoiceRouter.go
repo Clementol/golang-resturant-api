@@ -1,11 +1,11 @@
 package routes
 
 import (
-	controller "github.com/Clementol/restur-manag/controllers"
+	controller "github.com/Clementol/restur-manag/controllers/v1"
 	"github.com/gin-gonic/gin"
 )
 
-func InvoiceRoutes(incommingRoutes *gin.Engine) {
+func InvoiceRoutes(incommingRoutes *gin.RouterGroup) {
 
 	incommingRoutes.GET("/invoices", controller.GetInvoices())
 	// incommingRoutes.GET("/invoices/:invoice_id", controller.GetInvoice())

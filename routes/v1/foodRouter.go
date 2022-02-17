@@ -1,11 +1,11 @@
 package routes
 
 import (
-	controller "github.com/Clementol/restur-manag/controllers"
+	controller "github.com/Clementol/restur-manag/controllers/v1"
 	"github.com/gin-gonic/gin"
 )
 
-func FoodRoutes(incommingRoutes *gin.Engine) {
+func FoodRoutes(incommingRoutes *gin.RouterGroup) {
 	
 	incommingRoutes.GET("/foods", controller.GetFoods())
 	incommingRoutes.GET("/foods/:food_id", controller.GetFood())

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/Clementol/restur-manag/routes"
+	"github.com/Clementol/restur-manag/routes/v1"
 	"github.com/joho/godotenv"
 
 	"github.com/gin-gonic/gin"
@@ -19,14 +19,15 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
-	// router.Static("/public", "./images")
-	routes.UserRoutes(router)
-	routes.FoodRoutes(router)
-	routes.MenuRoutes(router)
-	routes.CartRoutes(router)
-	routes.OrderRoutes(router)
-	routes.InvoiceRoutes(router)
-	routes.VendorRoutes(router)
+	version1 := router.Group("api/v1")
+	// router.Static("/public", "./public/images")
+	routes.UserRoutes(version1)
+	routes.FoodRoutes(version1)
+	routes.MenuRoutes(version1)
+	routes.CartRoutes(version1)
+	routes.OrderRoutes(version1)
+	routes.InvoiceRoutes(version1)
+	routes.VendorRoutes(version1)
 	router.SetTrustedProxies(nil)
 
 	router.Run(":" + PORT)

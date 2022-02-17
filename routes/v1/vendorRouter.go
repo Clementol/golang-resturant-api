@@ -1,12 +1,12 @@
 package routes
 
 import (
-	controller "github.com/Clementol/restur-manag/controllers"
+	controller "github.com/Clementol/restur-manag/controllers/v1"
 	"github.com/gin-gonic/gin"
 )
 
 
-func VendorRoutes(incommingRoutes *gin.Engine) {
+func VendorRoutes(incommingRoutes *gin.RouterGroup) {
 	incommingRoutes.POST("/vendor/create", controller.CreateVendor())
 	incommingRoutes.PATCH("/vendor/update/:vendor_id", /*vendorAuth*/ controller.UpdateVendor())
 	incommingRoutes.GET("/vendor/:vendor_id", controller.GetVendor())
