@@ -96,8 +96,8 @@ func CreateVendor() gin.HandlerFunc {
 		vendor.Vendor_id = vendor.ID.Hex()
 
 		vendor.Image = imageFile
-		log.Println(vendor.Image)
-		// log.Fatal()
+		
+		
 		vendor.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		vendor.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
