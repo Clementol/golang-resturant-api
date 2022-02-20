@@ -1,7 +1,7 @@
 package routes
 
 import (
-	controller "github.com/Clementol/restur-manag/controllers/v1"
+	controller "github.com/Clementol/restur-manag/controllers/v1/user"
 	"github.com/Clementol/restur-manag/middleware"
 	"github.com/gin-gonic/gin"
 )

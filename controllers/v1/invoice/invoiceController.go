@@ -9,6 +9,7 @@ import (
 	db "github.com/Clementol/restur-manag/database"
 	"github.com/Clementol/restur-manag/models"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -26,10 +27,10 @@ type InvoiceViewFormat struct {
 	Order_details    interface{}
 }
 
-// var validate = validator.New()
+var validate = validator.New()
 var invoiceCollection *mongo.Collection = db.OpenCollection(db.Client, "invoice")
 
-// var orderCollection *mongo.Collection = db.OpenCollection(db.Client, "order")
+var orderCollection *mongo.Collection = db.OpenCollection(db.Client, "order")
 
 func GetInvoices() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -81,7 +82,7 @@ func GetInvoices() gin.HandlerFunc {
 // 		invoiceView.Invoice_id = invoice.Invoice_id
 // 		invoiceView.Payment_status = *&invoice.Payment_status
 // 		invoiceView.Payment_due = allOrderItems[0]["payment_due"]
-// 		invoiceView.Table_number = allOrderItems[0]["table_number"] 
+// 		invoiceView.Table_number = allOrderItems[0]["table_number"]
 // 		invoiceView.Order_details = allOrderItems[0]["order_items"]
 
 // 		c.JSON(http.StatusOK, invoiceView)

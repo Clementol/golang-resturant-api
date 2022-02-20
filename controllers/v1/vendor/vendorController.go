@@ -11,6 +11,7 @@ import (
 	helper "github.com/Clementol/restur-manag/helpers"
 	"github.com/Clementol/restur-manag/models"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -18,6 +19,9 @@ import (
 )
 
 var vendorCollection = db.OpenCollection(db.Client, "vendor")
+var orderCollection = db.OpenCollection(db.Client, "order")
+
+var validate = validator.New()
 
 // func GetVendors() gin.HandlerFunc {
 // 	return func(c *gin.Context) {
@@ -96,8 +100,7 @@ func CreateVendor() gin.HandlerFunc {
 		vendor.Vendor_id = vendor.ID.Hex()
 
 		vendor.Image = imageFile
-		
-		
+
 		vendor.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		vendor.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 

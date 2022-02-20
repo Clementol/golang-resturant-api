@@ -11,6 +11,7 @@ import (
 	helper "github.com/Clementol/restur-manag/helpers"
 	"github.com/Clementol/restur-manag/models"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -18,6 +19,8 @@ import (
 )
 
 var userCollection *mongo.Collection = db.OpenCollection(db.Client, "user")
+
+var validate = validator.New()
 
 func GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -116,8 +119,8 @@ func Signup() gin.HandlerFunc {
 		}
 		defer cancel()
 
-		password := helper.HashPassword(*user.Password)
-		user.Password = &password
+		password := helper.HashPassword(user.Password)
+		user.Password = password
 
 		phoneCount, err := userCollection.CountDocuments(ctx, bson.M{"phone": user.Phone})
 		if err != nil {
@@ -138,13 +141,13 @@ func Signup() gin.HandlerFunc {
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
 
-		token, refreshToken, _ := helper.GenerateAllTokens(*user.Email, *user.First_Name, *user.Last_Name, user.User_id)
-		user.Token = &token
-		user.Refresh_Token = &refreshToken
+		token, refreshToken, _ := helper.GenerateAllTokens(user.Email, user.First_Name, user.Last_Name, user.User_id)
+		user.Token = token
+		user.Refresh_Token = refreshToken
 
 		if file != nil {
 			imageText := helper.RenameFileName(*file)
-			user.Avatar = &imageText
+			user.Avatar = imageText
 		}
 
 		result, insertErr := userCollection.InsertOne(ctx, user)
@@ -178,14 +181,14 @@ func Login() gin.HandlerFunc {
 			return
 		}
 		defer cancel()
-		passwordInvalid, msg := helper.VerifyPassword(*user.Password, *foundUser.Password)
+		passwordInvalid, msg := helper.VerifyPassword(user.Password, foundUser.Password)
 		if !passwordInvalid {
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
 		defer cancel()
 
-		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_Name, *foundUser.Last_Name, foundUser.User_id)
+		token, refreshToken, _ := helper.GenerateAllTokens(foundUser.Email, foundUser.First_Name, foundUser.Last_Name, foundUser.User_id)
 
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
 
@@ -216,15 +219,15 @@ func UpdateUser() gin.HandlerFunc {
 			updateObj["avatar"] = imageText
 		}
 
-		if user.Phone != nil {
+		if user.Phone != "" {
 			updateObj["phone"] = user.Phone
 		}
 
-		if user.First_Name != nil {
+		if user.First_Name != "" {
 			updateObj["first_name"] = user.First_Name
 		}
 
-		if user.Last_Name != nil {
+		if user.Last_Name != "" {
 
 			updateObj["last_name"] = user.Last_Name
 		}
