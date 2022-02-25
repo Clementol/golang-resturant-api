@@ -74,8 +74,8 @@ func GetUser() gin.HandlerFunc {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 		userId := c.MustGet("user_id").(string)
-
-		var user bson.M
+		var user models.User
+		userObj := bson.M{}
 
 		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
 		if err != nil {
@@ -84,7 +84,10 @@ func GetUser() gin.HandlerFunc {
 			return
 		}
 		defer cancel()
-		c.JSON(http.StatusOK, user)
+
+		userDetails := helper.GetUserDetails(userObj, user)
+
+		c.JSON(http.StatusOK, userDetails)
 	}
 }
 
@@ -168,6 +171,7 @@ func Login() gin.HandlerFunc {
 		defer cancel()
 		var user models.User
 		var foundUser models.User
+		foundUserObj := bson.M{}
 
 		if err := c.BindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -192,7 +196,9 @@ func Login() gin.HandlerFunc {
 
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
 
-		c.JSON(http.StatusOK, foundUser)
+		userDetails := helper.GetUserDetails(foundUserObj, foundUser)
+
+		c.JSON(http.StatusOK, userDetails)
 
 	}
 }
@@ -204,9 +210,9 @@ func UpdateUser() gin.HandlerFunc {
 
 		userId := c.Param("user_id")
 
-		file, _ := c.FormFile("file")
+		fileHeader, _ := c.FormFile("file")
 
-		var user models.User
+		var user, updatedUser models.User
 
 		if err := c.Bind(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -214,9 +220,20 @@ func UpdateUser() gin.HandlerFunc {
 		}
 		updateObj := bson.M{}
 
-		if file != nil {
-			imageText := helper.RenameFileName(*file)
-			updateObj["avatar"] = imageText
+		if fileHeader != nil {
+			imageText := helper.RenameFileName(*fileHeader)
+			file, err := fileHeader.Open()
+			if err != nil {
+				log.Println(err.Error())
+			}
+			
+			msg, url := helper.UploadToS3(imageText, file, fileHeader)
+			if msg != "" {
+				log.Println(msg)
+			}
+			if url != "" {
+				updateObj["avatar"] = url
+			}
 		}
 
 		if user.Phone != "" {
@@ -234,7 +251,7 @@ func UpdateUser() gin.HandlerFunc {
 
 		updateObj["updated_at"], _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
-		updatedUser := bson.M{}
+		updatedUserObj := bson.M{}
 		filter := bson.M{"user_id": userId}
 		opt := options.FindOneAndUpdate().SetReturnDocument(options.After)
 		err := userCollection.FindOneAndUpdate(ctx, filter,
@@ -245,8 +262,10 @@ func UpdateUser() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
+		
+		userDetails := helper.GetUserDetails(updatedUserObj, updatedUser)
 
-		c.JSON(http.StatusAccepted, updatedUser)
+		c.JSON(http.StatusAccepted, userDetails)
 
 	}
 }

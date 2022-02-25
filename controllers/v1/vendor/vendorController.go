@@ -71,7 +71,7 @@ func CreateVendor() gin.HandlerFunc {
 		defer cancel()
 		var vendor models.Vendor
 
-		file, err := c.FormFile("file")
+		fileHeader, err := c.FormFile("file")
 
 		if err != nil {
 			msg := "vendor image is required"
@@ -91,15 +91,24 @@ func CreateVendor() gin.HandlerFunc {
 			return
 		}
 
-		imageFile := helper.RenameFileName(*file)
+		if fileHeader != nil {
+			imageText := helper.RenameFileName(*fileHeader)
+			file, err := fileHeader.Open()
+			if err != nil {
+				log.Println(err.Error())
+			}
+			msg, url := helper.UploadToS3(imageText, file, fileHeader)
 
-		// os.Mkdir("images", os.ModePerm)
-		// c.SaveUploadedFile(vendor.Image, "images/"+imageFile)
+			if msg != "" {
+				log.Println(msg)
+			}
+			if url != "" {
+				vendor.Image = url
+			}
+		}
 
 		vendor.ID = primitive.NewObjectID()
 		vendor.Vendor_id = vendor.ID.Hex()
-
-		vendor.Image = imageFile
 
 		vendor.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		vendor.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
@@ -135,11 +144,24 @@ func UpdateVendor() gin.HandlerFunc {
 			updateObj["name"] = vendor.Name
 		}
 
-		file, _ := c.FormFile("file")
-		if file != nil {
+		fileHeader, _ := c.FormFile("file")
 
-			imageFile := helper.RenameFileName(*file)
-			updateObj["vendor_image"] = imageFile
+		if fileHeader != nil {
+
+			imageText := helper.RenameFileName(*fileHeader)
+			file, err := fileHeader.Open()
+			if err != nil {
+				log.Println(err.Error())
+			}
+			msg, url := helper.UploadToS3(imageText, file, fileHeader)
+
+			if msg != "" {
+				log.Println(msg)
+			}
+			if url != "" {
+				vendor.Image = url
+			}
+			updateObj["vendor_image"] = vendor.Image
 		}
 
 		if vendor.Location != "" {

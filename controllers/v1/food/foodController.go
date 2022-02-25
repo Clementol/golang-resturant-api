@@ -94,12 +94,31 @@ func CreateFood() gin.HandlerFunc {
 		var menu models.Menu
 		var food models.Food
 
-		file, err := c.FormFile("file")
+		fileHeader, err := c.FormFile("file")
 		if err != nil {
 			msg := "food image is required " + err.Error()
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
+
+		if fileHeader != nil {
+
+			imageText := helper.RenameFileName(*fileHeader)
+			file, err := fileHeader.Open()
+			if err != nil {
+				log.Println(err.Error())
+			}
+			msg, url := helper.UploadToS3(imageText, file, fileHeader)
+
+			if msg != "" {
+				log.Println(msg)
+			}
+			if url != "" {
+				food.Food_image = url
+			}
+
+		}
+
 		if err := c.Bind(&food); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -117,8 +136,7 @@ func CreateFood() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
-		imageFIle := helper.RenameFileName(*file)
-		food.Food_image = imageFIle
+
 		food.ID = primitive.NewObjectID()
 		food.Food_id = food.ID.Hex()
 		var num = toFixed(*food.Price, 2)
@@ -154,7 +172,7 @@ func UpdateFood() gin.HandlerFunc {
 		var menu models.Menu
 
 		foodId := c.Param("food_id")
-		file, _ := c.FormFile("file")
+		fileHeader, _ := c.FormFile("file")
 
 		if err := c.Bind(&food); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -171,10 +189,23 @@ func UpdateFood() gin.HandlerFunc {
 
 		}
 
-		if file != nil {
-			imageFile := helper.RenameFileName(*file)
-			updateObj = append(updateObj, bson.E{Key: "food_image", Value: imageFile})
+		if fileHeader != nil {
 
+			imageText := helper.RenameFileName(*fileHeader)
+			file, err := fileHeader.Open()
+			if err != nil {
+				log.Println(err.Error())
+			}
+			msg, url := helper.UploadToS3(imageText, file, fileHeader)
+
+			if msg != "" {
+				log.Println(msg)
+			}
+			if url != "" {
+				food.Food_image = url
+			}
+
+			updateObj = append(updateObj, bson.E{Key: "food_image", Value: food.Food_image})
 		}
 
 		if food.Menu_id != nil {
