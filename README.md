@@ -1,4 +1,4 @@
-# Resturant Management System
+# Online Food Shoping Management System
 
 ## Summary
 
